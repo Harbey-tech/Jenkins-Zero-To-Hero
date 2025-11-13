@@ -1,66 +1,66 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        REGISTRY = "your-dockerhub-username"
-        IMAGE_NAME = "jenkins-end-to-end-cicd-project"
+  environment {
+    REGISTRY = "harbeytech" // your Docker Hub username
+    IMAGE_NAME = "jenkins-end-to-end-cicd-project"
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
+      }
     }
 
-    stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
-            }
+    stage('Build and Test') {
+      steps {
+        script {
+          echo "Building the project with Maven..."
+          sh 'mvn clean package -DskipTests=false'
         }
-
-        stage('Build and Test') {
-            steps {
-                script {
-                    echo "Building and testing the Maven project..."
-                    sh 'mvn clean package -DskipTests=false'
-                }
-            }
-        }
-
-        stage('Static Code Analysis - SonarCloud') {
-            when {
-                expression { return false } // change to true once you configure SonarCloud
-            }
-            steps {
-                echo "Running SonarCloud analysis..."
-                // Example command if Sonar is set up:
-                // sh 'mvn sonar:sonar -Dsonar.projectKey=your_project_key -Dsonar.organization=your_org -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN'
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    echo "Building Docker image..."
-                    sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:latest ."
-                }
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                script {
-                    echo "Pushing Docker image to Docker Hub..."
-                    sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
-                    sh "docker push ${REGISTRY}/${IMAGE_NAME}:latest"
-                }
-            }
-        }
-
+      }
     }
 
-    post {
-        success {
-            echo '✅ Build and deployment completed successfully!'
-        }
-        failure {
-            echo '❌ Build failed. Please check the Jenkins console output.'
-        }
+    stage('Static Code Analysis - SonarCloud') {
+      when {
+        expression { return false } // change to true once you set up SonarCloud
+      }
+      steps {
+        echo "SonarCloud analysis would run here..."
+      }
     }
+
+    stage('Build Docker Image') {
+      steps {
+        script {
+          echo "Building Docker image..."
+          sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+        }
+      }
+    }
+
+    stage('Push Docker Image') {
+      environment {
+        DOCKERHUB_CREDS = credentials('docker-cred') // your Jenkins DockerHub credentials ID
+      }
+      steps {
+        script {
+          echo "Pushing Docker image..."
+          sh "echo ${DOCKERHUB_CREDS_PSW} | docker login -u ${DOCKERHUB_CREDS_USR} --password-stdin"
+          sh "docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "✅ Build completed successfully!"
+    }
+    failure {
+      echo "❌ Build failed. Check the Jenkins logs."
+    }
+  }
 }
