@@ -2,89 +2,72 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_USERNAME = "harbey271"
-        DOCKER_IMAGE_NAME = "spring-boot-app"
-        DOCKER_IMAGE_TAG = "latest"
+        DOCKER_IMAGE = 'myapp:latest'
+        REGISTRY_CREDENTIAL = 'dockerhub-credentials' // replace with your Docker registry credentials ID
     }
 
     stages {
-
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
-                echo '🔄 Checking out repository...'
-                checkout scm
-            }
-        }
-
-        stage('Diagnostics') {
-            steps {
-                echo '🩺 Checking workspace details...'
-                sh '''
-                    echo "Current working directory:"
-                    pwd
-                    echo "Contents of workspace:"
-                    ls -al
-                    echo "Searching for pom.xml file:"
-                    find . -name "pom.xml"
-                '''
+                // Checkout the repo
+                git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
             }
         }
 
         stage('Build and Test') {
             steps {
-                echo '⚙️ Building and testing the project...'
-                sh '''
-                    # Navigate to folder containing pom.xml if needed
-                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                    mvn clean package
-                '''
+                // Build the Spring Boot project with Maven
+                sh 'mvn clean package'
             }
         }
 
         stage('Static Code Analysis - SonarCloud') {
+            when {
+                expression { return fileExists('pom.xml') }
+            }
             steps {
-                echo '🔍 Running SonarCloud analysis...'
-                sh '''
-                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                    mvn sonar:sonar \
-                        -Dsonar.projectKey=your_project_key \
-                        -Dsonar.organization=your_org \
-                        -Dsonar.host.url=https://sonarcloud.io \
-                        -Dsonar.login=${SONAR_TOKEN}
-                '''
+                // Run SonarCloud analysis (optional, configure SONAR_TOKEN in Jenkins)
+                withSonarQubeEnv('SonarCloud') {
+                    sh 'mvn sonar:sonar'
+                }
             }
         }
 
         stage('Build and Push Docker Image') {
             steps {
-                echo '🐳 Building and pushing Docker image...'
-                sh '''
-                    cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                    docker build -t ${DOCKER_HUB_USERNAME}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} .
-                    echo "${DOCKER_HUB_PASSWORD}" | docker login -u "${DOCKER_HUB_USERNAME}" --password-stdin
-                    docker push ${DOCKER_HUB_USERNAME}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}
-                '''
+                script {
+                    // Build Docker image
+                    sh "docker build -t ${DOCKER_IMAGE} ."
+
+                    // Push Docker image
+                    docker.withRegistry('', "${REGISTRY_CREDENTIAL}") {
+                        sh "docker push ${DOCKER_IMAGE}"
+                    }
+                }
             }
         }
 
         stage('Update Deployment File') {
             steps {
-                echo '📝 Updating Kubernetes deployment YAML...'
-                sh '''
-                    # Example: update image tag in deployment.yaml
-                    sed -i "s|image: .*|image: ${DOCKER_HUB_USERNAME}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}|g" k8s/deployment.yaml
-                '''
+                // Example: update image in Kubernetes deployment YAML
+                sh "sed -i 's|image: .*|image: ${DOCKER_IMAGE}|' deployment.yaml"
             }
         }
 
+        stage('Deploy to Kubernetes') {
+            steps {
+                // Apply Kubernetes deployment
+                sh 'kubectl apply -f deployment.yaml'
+            }
+        }
     }
 
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo '❌ Pipeline failed. Check logs for details.'
+            echo 'Pipeline failed. Check logs!'
         }
     }
 }
