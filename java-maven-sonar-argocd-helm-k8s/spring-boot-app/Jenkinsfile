@@ -32,7 +32,13 @@ pipeline {
             }
             steps {
                 withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_AUTH_TOKEN')]) {
-                    sh "mvn sonar:sonar -Dsonar.organization=YOUR_SONARCLOUD_ORG -Dsonar.projectKey=YOUR_PROJECT_KEY -Dsonar.login=${SONAR_AUTH_TOKEN} -Dsonar.host.url=${SONAR_URL}"
+                    sh """
+                        mvn sonar:sonar \
+                        -Dsonar.organization=Harbey-tech \
+                        -Dsonar.projectKey=Harbey-tech \
+                        -Dsonar.login=${SONAR_AUTH_TOKEN} \
+                        -Dsonar.host.url=${SONAR_URL}
+                    """
                 }
             }
         }
@@ -57,8 +63,8 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh """
-                        git config user.email "youremail@example.com"
-                        git config user.name "Harbey"
+                        git config user.email "harbey2965@gmail.com"
+                        git config user.name "Harbey-tech"
                         BUILD_NUMBER=${BUILD_NUMBER}
                         sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yaml
                         git add deployment.yaml
