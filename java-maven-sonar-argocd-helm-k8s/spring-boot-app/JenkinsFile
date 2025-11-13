@@ -1,66 +1,83 @@
 pipeline {
-  agent any
-
-  environment {
-    REGISTRY = "harbeytech" // your Docker Hub username
-    IMAGE_NAME = "jenkins-end-to-end-cicd-project"
-  }
-
-  stages {
-
-    stage('Checkout') {
-      steps {
-        git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
-      }
-    }
-
-    stage('Build and Test') {
-      steps {
-        script {
-          echo "Building the project with Maven..."
-          sh 'mvn clean package -DskipTests=false'
+    agent {
+        docker {
+            image 'maven:3.9.4-eclipse-temurin-17'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
-      }
     }
 
-    stage('Static Code Analysis - SonarCloud') {
-      when {
-        expression { return false } // change to true once you set up SonarCloud
-      }
-      steps {
-        echo "SonarCloud analysis would run here..."
-      }
+    environment {
+        IMAGE_NAME = 'spring-boot-app'
+        DOCKERHUB_USER = 'harbey271'
+        DOCKERHUB_CREDENTIALS = 'docker-cred' // Jenkins credentials ID for Docker Hub
     }
 
-    stage('Build Docker Image') {
-      steps {
-        script {
-          echo "Building Docker image..."
-          sh "docker build -t ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} ."
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo '📦 Checking out source code...'
+                git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
+            }
         }
-      }
-    }
 
-    stage('Push Docker Image') {
-      environment {
-        DOCKERHUB_CREDS = credentials('docker-cred') // your Jenkins DockerHub credentials ID
-      }
-      steps {
-        script {
-          echo "Pushing Docker image..."
-          sh "echo ${DOCKERHUB_CREDS_PSW} | docker login -u ${DOCKERHUB_CREDS_USR} --password-stdin"
-          sh "docker push ${REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
+        stage('Check Workspace') {
+            steps {
+                echo '🔍 Checking workspace contents...'
+                sh 'pwd && ls -R'
+            }
         }
-      }
-    }
-  }
 
-  post {
-    success {
-      echo "✅ Build completed successfully!"
+        stage('Build and Test') {
+            steps {
+                echo '⚙️ Building and testing the project...'
+                sh '''
+                    echo "Current directory:"
+                    pwd
+                    echo "Building with Maven..."
+                    mvn clean package
+                '''
+            }
+        }
+
+        stage('Static Code Analysis - SonarCloud (Optional)') {
+            steps {
+                echo '🧠 SonarCloud analysis (you can enable later if configured)'
+                sh '''
+                    echo "Skipping SonarCloud step for now..."
+                '''
+            }
+        }
+
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    echo '🐳 Building and pushing Docker image to Docker Hub...'
+                    sh """
+                        docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} .
+                        docker tag ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER} ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+                        echo "${DOCKERHUB_USER} Docker login..."
+                        echo "$DOCKERHUB_PASSWORD" | docker login -u "${DOCKERHUB_USER}" --password-stdin
+                        docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy (Optional)') {
+            steps {
+                echo '🚀 Deployment stage — configure Kubernetes or Docker deploy steps here later.'
+            }
+        }
     }
-    failure {
-      echo "❌ Build failed. Check the Jenkins logs."
+
+    post {
+        success {
+            echo '✅ Build and push completed successfully!'
+        }
+        failure {
+            echo '❌ Build failed. Check logs above for details.'
+        }
     }
-  }
 }
