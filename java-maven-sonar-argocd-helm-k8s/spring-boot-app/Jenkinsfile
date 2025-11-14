@@ -1,46 +1,102 @@
 pipeline {
+
     agent any
 
+    environment {
+        DOCKER_IMAGE = "harbey-tech/ultimate-cicd:${BUILD_NUMBER}"
+        REGISTRY = "https://index.docker.io/v1/"
+        SONAR_URL = "https://sonarcloud.io"
+        GIT_REPO_NAME = "JENKINS-END-TO-END-CICD-PROJECT"
+        GIT_USER_NAME = "Harbey-tech"
+    }
+
     stages {
-        stage('Environment Check') {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+            }
+        }
+
+        stage('Verify Workspace') {
             steps {
                 sh '''
-                    echo "=============== ENVIRONMENT CHECK ==============="
-                    echo "Current directory: $(pwd)"
-                    echo "Listing files:"
+                    echo "== FILES =="
                     ls -al
-
-                    echo "-------------------------------------------------"
-                    echo "Java Version:"
-                    java -version || true
-
-                    echo "-------------------------------------------------"
-                    echo "Maven Version:"
-                    mvn -v || true
-
-                    echo "-------------------------------------------------"
-                    echo "Checking for pom.xml:"
+                    
+                    echo "== Checking for pom.xml =="
                     if [ ! -f pom.xml ]; then
-                        echo "ERROR: pom.xml not found!"
-                        exit 1
+                      echo "ERROR: pom.xml NOT FOUND!"
+                      exit 1
                     fi
                 '''
             }
         }
 
-        stage('Maven Build (Debug Mode)') {
+        stage('Build and Test (Maven)') {
+            agent {
+                docker {
+                    image 'maven:3.9.4-eclipse-temurin-17'
+                    args '--user root'
+                }
+            }
             steps {
-                sh '''
-                    echo "=============== MAVEN BUILD START ==============="
-                    mvn -X clean install
-                '''
+                sh 'mvn -B clean package'
+            }
+        }
+
+        stage('Static Code Analysis - SonarCloud') {
+            when {
+                expression { fileExists('pom.xml') }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_AUTH_TOKEN')]) {
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.organization=Harbey-tech \
+                          -Dsonar.projectKey=Harbey-tech_JENKINS-END-TO-END-CICD-PROJECT \
+                          -Dsonar.login=${SONAR_AUTH_TOKEN} \
+                          -Dsonar.host.url=${SONAR_URL}
+                    """
+                }
+            }
+        }
+
+        stage('Build & Push Docker Image') {
+            steps {
+                script {
+                    sh "docker build -t ${DOCKER_IMAGE} ."
+                    docker.withRegistry(REGISTRY, 'docker-cred') {
+                        docker.image("${DOCKER_IMAGE}").push()
+                    }
+                }
+            }
+        }
+
+        stage('Update Deployment File & Push to GitHub') {
+            steps {
+                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                        git config user.email "harbey2965@gmail.com"
+                        git config user.name "Harbey-tech"
+
+                        sed -i "s/replaceImageTag/'"${BUILD_NUMBER}"'/g" deployment.yaml
+
+                        git add deployment.yaml
+                        git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                    '''
+                }
             }
         }
     }
 
     post {
-        always {
-            echo "=============== PIPELINE FINISHED ==============="
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        failure {
+            echo "Pipeline failed. Check logs!"
         }
     }
 }
