@@ -1,87 +1,46 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.4-eclipse-temurin-17'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
-
-    environment {
-        DOCKER_IMAGE = "harbey-tech/ultimate-cicd:${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-        SONAR_URL = "https://sonarcloud.io"
-    }
+    agent any
 
     stages {
-        stage('Checkout') {
+        stage('Environment Check') {
             steps {
-                git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
+                sh '''
+                    echo "=============== ENVIRONMENT CHECK ==============="
+                    echo "Current directory: $(pwd)"
+                    echo "Listing files:"
+                    ls -al
+
+                    echo "-------------------------------------------------"
+                    echo "Java Version:"
+                    java -version || true
+
+                    echo "-------------------------------------------------"
+                    echo "Maven Version:"
+                    mvn -v || true
+
+                    echo "-------------------------------------------------"
+                    echo "Checking for pom.xml:"
+                    if [ ! -f pom.xml ]; then
+                        echo "ERROR: pom.xml not found!"
+                        exit 1
+                    fi
+                '''
             }
         }
 
-        stage('Build and Test') {
+        stage('Maven Build (Debug Mode)') {
             steps {
-                sh 'ls -ltr'
-                sh 'mvn clean package'
-            }
-        }
-
-        stage('Static Code Analysis - SonarCloud') {
-            when {
-                expression { fileExists('pom.xml') }
-            }
-            steps {
-                withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_AUTH_TOKEN')]) {
-                    sh """
-                        mvn sonar:sonar \
-                        -Dsonar.organization=Harbey-tech \
-                        -Dsonar.projectKey=Harbey-tech \
-                        -Dsonar.login=${SONAR_AUTH_TOKEN} \
-                        -Dsonar.host.url=${SONAR_URL}
-                    """
-                }
-            }
-        }
-
-        stage('Build and Push Docker Image') {
-            steps {
-                script {
-                    sh "docker build -t ${DOCKER_IMAGE} ."
-                    def dockerImage = docker.image("${DOCKER_IMAGE}")
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
-                        dockerImage.push()
-                    }
-                }
-            }
-        }
-
-        stage('Update Deployment File') {
-            environment {
-                GIT_REPO_NAME = "JENKINS-END-TO-END-CICD-PROJECT"
-                GIT_USER_NAME = "Harbey-tech"
-            }
-            steps {
-                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                    sh """
-                        git config user.email "harbey2965@gmail.com"
-                        git config user.name "Harbey-tech"
-                        BUILD_NUMBER=${BUILD_NUMBER}
-                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yaml
-                        git add deployment.yaml
-                        git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                    """
-                }
+                sh '''
+                    echo "=============== MAVEN BUILD START ==============="
+                    mvn -X clean install
+                '''
             }
         }
     }
 
     post {
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed. Check logs!'
+        always {
+            echo "=============== PIPELINE FINISHED ==============="
         }
     }
 }
