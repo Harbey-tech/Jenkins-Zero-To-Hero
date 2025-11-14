@@ -1,47 +1,28 @@
 pipeline {
-
-    agent any
+    agent {
+        docker {
+            image 'maven:3.9.4-eclipse-temurin-17'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
 
     environment {
         DOCKER_IMAGE = "harbey-tech/ultimate-cicd:${BUILD_NUMBER}"
-        REGISTRY = "https://index.docker.io/v1/"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
         SONAR_URL = "https://sonarcloud.io"
-        GIT_REPO_NAME = "JENKINS-END-TO-END-CICD-PROJECT"
-        GIT_USER_NAME = "Harbey-tech"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                git branch: 'main', url: "https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git"
+                git branch: 'main', url: 'https://github.com/Harbey-tech/JENKINS-END-TO-END-CICD-PROJECT.git'
             }
         }
 
-        stage('Verify Workspace') {
+        stage('Build and Test') {
             steps {
-                sh '''
-                    echo "== FILES =="
-                    ls -al
-                    
-                    echo "== Checking for pom.xml =="
-                    if [ ! -f pom.xml ]; then
-                      echo "ERROR: pom.xml NOT FOUND!"
-                      exit 1
-                    fi
-                '''
-            }
-        }
-
-        stage('Build and Test (Maven)') {
-            agent {
-                docker {
-                    image 'maven:3.9.4-eclipse-temurin-17'
-                    args '--user root'
-                }
-            }
-            steps {
-                sh 'mvn -B clean package'
+                sh 'ls -ltr'
+                sh 'mvn clean package'
             }
         }
 
@@ -53,39 +34,43 @@ pipeline {
                 withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_AUTH_TOKEN')]) {
                     sh """
                         mvn sonar:sonar \
-                          -Dsonar.organization=Harbey-tech \
-                          -Dsonar.projectKey=Harbey-tech_JENKINS-END-TO-END-CICD-PROJECT \
-                          -Dsonar.login=${SONAR_AUTH_TOKEN} \
-                          -Dsonar.host.url=${SONAR_URL}
+                        -Dsonar.organization=Harbey-tech \
+                        -Dsonar.projectKey=Harbey-tech \
+                        -Dsonar.login=${SONAR_AUTH_TOKEN} \
+                        -Dsonar.host.url=${SONAR_URL}
                     """
                 }
             }
         }
 
-        stage('Build & Push Docker Image') {
+        stage('Build and Push Docker Image') {
             steps {
                 script {
                     sh "docker build -t ${DOCKER_IMAGE} ."
-                    docker.withRegistry(REGISTRY, 'docker-cred') {
-                        docker.image("${DOCKER_IMAGE}").push()
+                    def dockerImage = docker.image("${DOCKER_IMAGE}")
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
+                        dockerImage.push()
                     }
                 }
             }
         }
 
-        stage('Update Deployment File & Push to GitHub') {
+        stage('Update Deployment File') {
+            environment {
+                GIT_REPO_NAME = "JENKINS-END-TO-END-CICD-PROJECT"
+                GIT_USER_NAME = "Harbey-tech"
+            }
             steps {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                    sh '''
+                    sh """
                         git config user.email "harbey2965@gmail.com"
                         git config user.name "Harbey-tech"
-
-                        sed -i "s/replaceImageTag/'"${BUILD_NUMBER}"'/g" deployment.yaml
-
+                        BUILD_NUMBER=${BUILD_NUMBER}
+                        sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" deployment.yaml
                         git add deployment.yaml
                         git commit -m "Update deployment image to version ${BUILD_NUMBER}"
                         git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                    '''
+                    """
                 }
             }
         }
@@ -93,10 +78,10 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline completed successfully!"
+            echo 'Pipeline completed successfully!'
         }
         failure {
-            echo "Pipeline failed. Check logs!"
+            echo 'Pipeline failed. Check logs!'
         }
     }
 }
