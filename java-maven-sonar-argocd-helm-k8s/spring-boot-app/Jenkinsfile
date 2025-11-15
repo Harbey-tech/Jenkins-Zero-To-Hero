@@ -23,6 +23,15 @@ pipeline {
             steps {
                 sh 'ls -ltr'
                 script {
+                    // Debug main class and files
+                    sh """
+                        echo "Listing Java classes in src/main/java:"
+                        find src/main/java -name "*.java"
+                        echo "Verifying main class in pom.xml:"
+                        grep -A1 "<mainClass>" pom.xml || echo "No main class found in pom.xml"
+                    """
+
+                    // Run Maven build with debug
                     def status = sh(script: '''
                         set -o errexit
                         set -o pipefail
