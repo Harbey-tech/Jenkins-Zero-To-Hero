@@ -22,7 +22,21 @@ pipeline {
         stage('Build and Test') {
             steps {
                 sh 'ls -ltr'
-                sh 'mvn clean package'
+                script {
+                    def status = sh(script: '''
+                        set -o errexit
+                        set -o pipefail
+                        set -x
+                        mvn clean package -X
+                    ''', returnStatus: true)
+
+                    if (status != 0) {
+                        echo "Build failed with exit code ${status}"
+                        error("Stopping pipeline due to build failure")
+                    } else {
+                        echo "Build succeeded"
+                    }
+                }
             }
         }
 
