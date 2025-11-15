@@ -21,17 +21,12 @@ pipeline {
 
         stage('Build and Test') {
             steps {
-                sh 'ls -ltr'
-                script {
-                    // Debug main class and files
-                    sh """
-                        echo "Listing Java classes in src/main/java:"
-                        find src/main/java -name "*.java"
-                        echo "Verifying main class in pom.xml:"
-                        grep -A1 "<mainClass>" pom.xml || echo "No main class found in pom.xml"
-                    """
+                echo "===== Debug: Checking Java files and main class ====="
+                sh 'ls -ltr src/main/java/com/abhishek/'
+                sh 'head -n 20 src/main/java/com/abhishek/StartApplication.java'
+                sh 'grep -A 2 "<mainClass>" pom.xml || echo "No main class defined in pom.xml"'
 
-                    // Run Maven build with debug
+                script {
                     def status = sh(script: '''
                         set -o errexit
                         set -o pipefail
