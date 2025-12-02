@@ -9,8 +9,7 @@ pipeline {
 
   environment {
     SONAR_URL = "http://35.173.48.132:9000"
-    // --- CORRECTED DOCKER REGISTRY URL ---
-    DOCKER_REGISTRY = "index.docker.io" 
+    DOCKER_REGISTRY = "index.docker.io"
     DOCKER_REPO = "harbey271/ultimate-cicd"
     GIT_USER_NAME = "Harbey-tech"
     GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
@@ -20,7 +19,6 @@ pipeline {
 
     stage('Install Docker CLI') {
       steps {
-        // Install docker CLI inside the maven container so we can use `docker build`
         sh '''
           apt-get update
           apt-get install -y docker.io curl
@@ -70,7 +68,6 @@ pipeline {
           '''
 
           def dockerImage = docker.image("${DOCKER_IMAGE}")
-          // This uses the "docker-cred" credential ID you set up in Jenkins
           docker.withRegistry("${DOCKER_REGISTRY}", "docker-cred") {
             dockerImage.push()
           }
@@ -79,11 +76,11 @@ pipeline {
     }
 
     stage('Update Deployment File') {
-      // This stage runs on the main Jenkins agent (host), not inside the maven container
-      agent any 
+      agent any  // run on Jenkins host, not inside Docker
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
           sh '''
+            cd ${WORKSPACE}
             git config user.email "harbey2965@gmail.com"
             git config user.name "Harbey-tech"
 
@@ -91,12 +88,12 @@ pipeline {
             NEW_IMAGE_TAG="${DOCKER_REPO}:${BUILD_NUMBER}"
             OLD_TAG_PLACEHOLDER="replaceImageTag"
 
-            # Use sed to find the specific placeholder string and replace it with the new image tag
+            # Replace placeholder with the new image tag
             sed -i "s|${OLD_TAG_PLACEHOLDER}|${NEW_IMAGE_TAG}|" $MANIFEST_PATH
-            
+
             git add $MANIFEST_PATH
             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-            git push https://${GITHUB_TOKEN}@github.com{GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           '''
         }
       }
