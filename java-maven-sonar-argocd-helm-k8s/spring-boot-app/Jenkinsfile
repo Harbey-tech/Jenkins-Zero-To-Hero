@@ -21,13 +21,15 @@ pipeline {
                 sh '''
                     set -xe
                     apt-get update
-                    apt-get install -y docker.io curl
+                    apt-get install -y docker.io curl git
                 '''
             }
         }
 
         stage('Checkout') {
             steps {
+                // Clean workspace first to avoid leftover files
+                deleteDir()
                 checkout scm
             }
         }
@@ -35,7 +37,7 @@ pipeline {
         stage('Build and Test') {
             steps {
                 sh 'ls -ltr'
-                retry(3) { // retry in case of transient Maven errors
+                retry(3) { 
                     sh '''
                         set -xe
                         cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
@@ -86,10 +88,10 @@ pipeline {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                         set -xe
-                        # Remove any existing folder to avoid conflicts
+                        # Remove old repo folder to avoid conflicts
                         rm -rf ${GIT_REPO_NAME}
-                        
-                        # Clone the repo fresh on host so .git exists
+
+                        # Clone fresh so .git exists
                         git clone https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git
                         cd ${GIT_REPO_NAME}
 
@@ -100,6 +102,7 @@ pipeline {
                         NEW_IMAGE_TAG="${DOCKER_REPO}:${BUILD_NUMBER}"
                         OLD_TAG_PLACEHOLDER="replaceImageTag"
 
+                        # Update deployment manifest
                         sed -i "s|${OLD_TAG_PLACEHOLDER}|${NEW_IMAGE_TAG}|" $MANIFEST_PATH
 
                         git add $MANIFEST_PATH
