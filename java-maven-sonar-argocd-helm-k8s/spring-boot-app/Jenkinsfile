@@ -8,8 +8,9 @@ pipeline {
   }
 
   environment {
-    SONAR_URL = "http://35.173.48.132:9000"
-    DOCKER_REGISTRY = "index.docker.io"
+    SONAR_URL = "http://3.239.56.39:9000"
+    // --- CORRECTED DOCKER REGISTRY URL ---
+    DOCKER_REGISTRY = "index.docker.io" 
     DOCKER_REPO = "harbey271/ultimate-cicd"
     GIT_USER_NAME = "Harbey-tech"
     GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
@@ -69,6 +70,7 @@ pipeline {
           '''
 
           def dockerImage = docker.image("${DOCKER_IMAGE}")
+          // This uses the "docker-cred" credential ID you set up in Jenkins
           docker.withRegistry("${DOCKER_REGISTRY}", "docker-cred") {
             dockerImage.push()
           }
@@ -90,12 +92,10 @@ pipeline {
             OLD_TAG_PLACEHOLDER="replaceImageTag"
 
             # Use sed to find the specific placeholder string and replace it with the new image tag
-            # The -i flag edits the file in place.
             sed -i "s|${OLD_TAG_PLACEHOLDER}|${NEW_IMAGE_TAG}|" $MANIFEST_PATH
             
             git add $MANIFEST_PATH
             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-            # Push changes back to the main branch using the injected GITHUB_TOKEN for authentication
             git push https://${GITHUB_TOKEN}@github.com{GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           '''
         }
