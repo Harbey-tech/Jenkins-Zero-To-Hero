@@ -83,24 +83,29 @@ pipeline {
         stage('Update Deployment File') {
             agent any // run on Jenkins host
             steps {
-                dir("${WORKSPACE}") {
-                    withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                        sh '''
-                            set -xe
-                            git config user.email "harbey2965@gmail.com"
-                            git config user.name "Harbey-tech"
+                withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+                    sh '''
+                        set -xe
+                        # Remove any existing folder to avoid conflicts
+                        rm -rf ${GIT_REPO_NAME}
+                        
+                        # Clone the repo fresh on host so .git exists
+                        git clone https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git
+                        cd ${GIT_REPO_NAME}
 
-                            MANIFEST_PATH="java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml"
-                            NEW_IMAGE_TAG="${DOCKER_REPO}:${BUILD_NUMBER}"
-                            OLD_TAG_PLACEHOLDER="replaceImageTag"
+                        git config user.email "harbey2965@gmail.com"
+                        git config user.name "Harbey-tech"
 
-                            sed -i "s|${OLD_TAG_PLACEHOLDER}|${NEW_IMAGE_TAG}|" $MANIFEST_PATH
+                        MANIFEST_PATH="java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml"
+                        NEW_IMAGE_TAG="${DOCKER_REPO}:${BUILD_NUMBER}"
+                        OLD_TAG_PLACEHOLDER="replaceImageTag"
 
-                            git add $MANIFEST_PATH
-                            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-                            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                        '''
-                    }
+                        sed -i "s|${OLD_TAG_PLACEHOLDER}|${NEW_IMAGE_TAG}|" $MANIFEST_PATH
+
+                        git add $MANIFEST_PATH
+                        git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+                        git push origin HEAD:main
+                    '''
                 }
             }
         }
