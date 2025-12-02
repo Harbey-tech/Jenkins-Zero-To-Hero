@@ -3,8 +3,10 @@ pipeline {
     stages {
         stage('Docker Test') {
             steps {
-                docker.image('alpine:latest').inside {
-                    sh 'echo "Hello from container"'
+                script {  // <-- wrap non-declarative steps in script
+                    docker.image('alpine:latest').inside {
+                        sh 'echo "Hello from container"'
+                    }
                 }
             }
         }
