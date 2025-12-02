@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'harbey271/ultimate-cicd:1'
+      image 'harbey271/maven-docker-agent:v1'
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
