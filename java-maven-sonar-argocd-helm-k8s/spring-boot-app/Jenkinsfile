@@ -65,16 +65,5 @@ pipeline {
         }
       }
     }
-
-    stage('Collect Logs') {
-      steps {
-        script {
-          echo "### Pipeline Logs Summary ###"
-          sh 'tail -n 50 ${WORKSPACE}/java-maven-sonar-argocd-helm-k8s/spring-boot-app/target/*.log || echo "No logs found"'
-          sh 'docker images'
-          sh 'docker ps -a'
-        }
-      }
-    }
   }
 }
