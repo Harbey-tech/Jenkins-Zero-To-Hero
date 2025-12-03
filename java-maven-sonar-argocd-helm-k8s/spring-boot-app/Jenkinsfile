@@ -30,6 +30,15 @@ pipeline {
       }
     }
 
+    stage('Install Docker CLI') {
+      steps {
+        script {
+          // Alpine-based Maven image, use apk to install Docker CLI
+          sh 'apk add --no-cache docker-cli'
+        }
+      }
+    }
+
     stage('Build and Push Docker Image') {
       environment {
         DOCKER_IMAGE = "harbey271/ultimate-cicd:${BUILD_NUMBER}"
