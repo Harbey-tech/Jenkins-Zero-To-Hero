@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'maven:3.9.0-eclipse-temurin-17'
+      image 'harbey271/maven-docker-agent:v1'
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
@@ -70,10 +70,7 @@ pipeline {
       steps {
         script {
           echo "### Pipeline Logs Summary ###"
-          // Print last 50 lines of the Jenkins console log for this job
           sh 'tail -n 50 ${WORKSPACE}/java-maven-sonar-argocd-helm-k8s/spring-boot-app/target/*.log || echo "No logs found"'
-
-          // Optionally, gather Docker build logs
           sh 'docker images'
           sh 'docker ps -a'
         }
