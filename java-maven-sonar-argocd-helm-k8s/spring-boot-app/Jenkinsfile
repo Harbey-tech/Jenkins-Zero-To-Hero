@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'maven:3.9.0-eclipse-temurin-17'
+      image 'docker:24.0.5-maven'
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
@@ -30,15 +30,6 @@ pipeline {
       }
     }
 
-    stage('Install Docker CLI') {
-      steps {
-        script {
-          // Alpine-based Maven image, use apk to install Docker CLI
-          sh 'apk add --no-cache docker-cli'
-        }
-      }
-    }
-
     stage('Build and Push Docker Image') {
       environment {
         DOCKER_IMAGE = "harbey271/ultimate-cicd:${BUILD_NUMBER}"
@@ -49,7 +40,7 @@ pipeline {
           sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
           def dockerImage = docker.image("${DOCKER_IMAGE}")
           docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-              dockerImage.push()
+            dockerImage.push()
           }
         }
       }
