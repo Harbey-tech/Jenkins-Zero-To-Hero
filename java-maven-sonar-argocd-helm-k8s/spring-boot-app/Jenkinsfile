@@ -1,7 +1,7 @@
 pipeline {
   agent {
     docker {
-      image 'abhishekf5/maven-abhishek-docker-agent:v1'  // updated image with Maven, JDK 17, Docker CLI, Git
+      image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // allows Docker commands
       reuseNode true  // keeps the workspace mounted and container alive during the stage
     }
