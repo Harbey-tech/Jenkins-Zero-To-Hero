@@ -2,7 +2,7 @@ pipeline {
   agent {
     docker {
       image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // Running as root to avoid permission issues within the container
       reuseNode true
     }
   }
@@ -17,26 +17,26 @@ pipeline {
 
     stage('Checkout') {
       steps {
+        // This checks out the repository into the workspace root.
         git branch: 'main', url: 'https://github.com/Harbey-tech/Jenkins-Zero-To-Hero.git'
       }
     }
 
     stage('Build and Test') {
       steps {
-        sh '''
-          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-          mvn clean package
-        '''
+        // Use 'dir' wrapper for clarity when moving into subdirectories for complex tasks
+        dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+           sh 'mvn clean package'
+        }
       }
     }
 
     stage('Static Code Analysis') {
       steps {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh '''
-            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}
-          '''
+          dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+            sh "mvn sonar:sonar -Dsonar.login=\$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}"
+          }
         }
       }
     }
@@ -44,12 +44,13 @@ pipeline {
     stage('Build and Push Docker Image') {
       steps {
         withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh '''
-            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            docker build -t ${DOCKER_IMAGE} .
-            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin ${DOCKER_REGISTRY}
-            docker push ${DOCKER_IMAGE}
-          '''
+          dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+            sh '''
+              docker build -t ${DOCKER_IMAGE} .
+              echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin ${DOCKER_REGISTRY}
+              docker push ${DOCKER_IMAGE}
+            '''
+          }
         }
       }
     }
@@ -60,26 +61,27 @@ pipeline {
         GIT_USER_NAME = "Harbey-tech"
       }
       steps {
-
-        // 🔍 DEBUG INFO
-        sh 'pwd'
-        sh 'ls -la'
-
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          sh '''
-            cd ${WORKSPACE}
+          // This ensures all git operations happen in the root directory where the .git folder is located.
+          dir("${WORKSPACE}") {
 
-            git config user.email "harbey2965@gmail.com"
-            git config user.name "Harbey-tech"
+            // The following commands are executed sequentially within the same shell instance
+            sh '''
+              # Set the git config user identity
+              git config user.email "harbey2965@gmail.com"
+              git config user.name "Harbey-tech"
 
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" \
-              java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+              # Use sed to replace the image tag in the manifest file
+              sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
 
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
+              # Add the modified file, commit, and push
+              git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+              git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
 
-            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
-          '''
+              # Push changes back to the main branch using the token for authentication
+              git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+            '''
+          }
         }
       }
     }
