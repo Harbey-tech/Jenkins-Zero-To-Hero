@@ -62,7 +62,15 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
           sh '''
-            cd ${WORKSPACE}  # go to repo root
+            cd ${WORKSPACE}  # ensure we are in the workspace root
+
+            # Clone repo if .git is missing (prevents "not in a git directory" errors)
+            if [ ! -d ".git" ]; then
+              echo "Git directory not found, cloning repo..."
+              git clone https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git .
+              git checkout main
+            fi
+
             git config user.email "harbey2965@gmail.com"
             git config user.name "Harbey-tech"
             BUILD_NUMBER=${BUILD_NUMBER}
