@@ -2,7 +2,7 @@ pipeline {
   agent {
     docker {
       image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-     args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemone
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
     }
   }
 
@@ -16,7 +16,8 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        git branch: 'main', url: 'https://github.com/Harbey-tech/Jenkins-Zero-To-Hero.git'
+        sh 'echo passed'
+        //git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
       }
     }
 
@@ -73,5 +74,6 @@ pipeline {
         }
       }
     }
+
   }
 }
