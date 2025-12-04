@@ -2,12 +2,12 @@ pipeline {
   agent {
     docker {
       image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
     }
   }
 
   environment {
-    SONAR_URL = "http://54.81.52.217:9000"
+    SONAR_URL = "http://54.91.181.121:9000"
     DOCKER_REGISTRY = "docker.io"
     DOCKER_IMAGE = "harbey271/ultimate-cicd:${BUILD_NUMBER}"
   }
@@ -16,7 +16,12 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        checkout scm   // ensures .git exists
+        checkout scm
+        sh '''
+          git config user.email "harbey2965@gmail.com"
+          git config user.name "Harbey-tech"
+          ...
+        '''
       }
     }
 
@@ -59,25 +64,16 @@ pipeline {
         GIT_USER_NAME = "Harbey-tech"
       }
       steps {
-        
-        // ✅ Make sure repo is checked out again (optional but safe)
-        checkout scm
-
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-
           sh '''
-            # Configure Git identity
+            cd ${WORKSPACE}  # go to repo root
             git config user.email "harbey2965@gmail.com"
             git config user.name "Harbey-tech"
-
-            # Update deployment image tag
+            BUILD_NUMBER=${BUILD_NUMBER}
             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-            # Stage, commit and push
             git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
-
-            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+            git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           '''
         }
       }
