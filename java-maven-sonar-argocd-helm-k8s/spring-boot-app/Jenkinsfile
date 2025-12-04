@@ -16,8 +16,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
+        checkout scm  // ensures .git exists and the repo is checked out
       }
     }
 
@@ -62,10 +61,11 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
           sh '''
-            cd ${WORKSPACE}  # go to repo root
+            checkout scm  # ensures repo is present and .git exists
+
             git config user.email "harbey2965@gmail.com"
             git config user.name "Harbey-tech"
-            BUILD_NUMBER=${BUILD_NUMBER}
+
             sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
             git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
             git commit -m "Update deployment image to version ${BUILD_NUMBER}"
