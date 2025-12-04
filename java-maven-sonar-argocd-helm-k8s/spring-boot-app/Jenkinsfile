@@ -1,8 +1,8 @@
 pipeline {
   agent {
     docker {
-      image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-      args "-u root -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}"
+      image 'harbey271/maven-docker-agent:v2'
+      args "-u root -v /var/run/docker.sock:/var/run/docker.sock -v ${pwd()}:${pwd()}"
     }
   }
 
@@ -16,7 +16,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        checkout scm   // ensures .git exists
+        checkout scm
       }
     }
 
@@ -59,21 +59,17 @@ pipeline {
         GIT_USER_NAME = "Harbey-tech"
       }
       steps {
-        
-        // ✅ Make sure repo is checked out again (optional but safe)
-        checkout scm
+
+        checkout scm   // ensures .git exists
 
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-
           sh '''
-            # Configure Git identity
             git config user.email "harbey2965@gmail.com"
             git config user.name "Harbey-tech"
 
-            # Update deployment image tag
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" \
+            java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
 
-            # Stage, commit and push
             git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
             git commit -m "Update deployment image to version ${BUILD_NUMBER}" || echo "No changes to commit"
 
