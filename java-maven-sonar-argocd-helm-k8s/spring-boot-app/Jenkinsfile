@@ -1,14 +1,14 @@
 pipeline {
   agent {
     docker {
-      image 'harbey271/maven-docker-agent:v1'  // Maven + JDK 17 image
+      image 'harbey271/maven-docker-agent:v2'  // updated image with Maven, JDK 17, Docker CLI, Git
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // allows Docker commands
       reuseNode true  // keeps the workspace mounted and container alive during the stage
     }
   }
 
   environment {
-    SONAR_URL = "http://100.31.112.180:9000"
+    SONAR_URL = "http://54.81.52.217:9000"
     DOCKER_REGISTRY = "docker.io"
     DOCKER_IMAGE = "harbey271/ultimate-cicd:${BUILD_NUMBER}"
   }
