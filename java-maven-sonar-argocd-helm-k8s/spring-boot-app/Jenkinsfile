@@ -16,12 +16,8 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        checkout scm
-        sh '''
-          git config user.email "harbey2965@gmail.com"
-          git config user.name "Harbey-tech"
-          ...
-        '''
+        sh 'echo passed'
+        //git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
       }
     }
 
