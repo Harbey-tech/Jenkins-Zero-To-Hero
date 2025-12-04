@@ -2,7 +2,7 @@ pipeline {
   agent {
     docker {
       image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // allows Docker commands
+      args "--user root -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}"  // mount workspace + Docker
       reuseNode true  // keeps the workspace mounted and container alive during the stage
     }
   }
@@ -82,5 +82,6 @@ pipeline {
         }
       }
     }
+
   }
 }
