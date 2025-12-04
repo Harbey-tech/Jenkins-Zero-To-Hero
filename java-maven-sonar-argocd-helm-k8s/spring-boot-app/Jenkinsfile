@@ -2,7 +2,7 @@ pipeline {
   agent {
     docker {
       image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+      args "-u root -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}"
     }
   }
 
