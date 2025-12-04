@@ -7,7 +7,7 @@ pipeline {
   }
 
   environment {
-    SONAR_URL = "http://54.81.52.217:9000"
+    SONAR_URL = "http://54.91.181.121:9000"
     DOCKER_REGISTRY = "docker.io"
     DOCKER_IMAGE = "harbey271/ultimate-cicd:${BUILD_NUMBER}"
   }
