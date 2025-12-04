@@ -1,24 +1,27 @@
 pipeline {
   agent {
     docker {
-      image 'harbey271/maven-docker-agent:v2'  // Maven + JDK 17, Docker CLI, Git
-      args "--user root -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE}"
-      reuseNode true  // keep workspace mounted across stages
+      // Use your pre-built image that contains Maven, JDK 17, Docker CLI, Git, and Sed
+      image 'harbey271/maven-docker-agent:v2'
+      // Mounts the host Docker socket into the container to enable 'docker build/push' commands
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+      // Keeps the container and workspace alive across all stages in this pipeline run
+      reuseNode true
     }
   }
 
   environment {
     SONAR_URL = "http://54.81.52.217:9000"
     DOCKER_REGISTRY = "docker.io"
+    // Use the Jenkins BUILD_NUMBER as the unique tag for this run
     DOCKER_IMAGE = "harbey271/ultimate-cicd:${BUILD_NUMBER}"
-    GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-    GIT_USER_NAME = "Harbey-tech"
   }
 
   stages {
 
     stage('Checkout') {
       steps {
+        // This checks out the repository into the WORKSPACE directory
         git branch: 'main', url: 'https://github.com/Harbey-tech/Jenkins-Zero-To-Hero.git'
       }
     }
@@ -57,36 +60,31 @@ pipeline {
     }
 
     stage('Update Deployment File') {
+      environment {
+        GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
+        GIT_USER_NAME = "Harbey-tech"
+      }
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
           sh '''
-            # Ensure we are in the workspace
-            cd ${WORKSPACE}
-
-            # Clone repo if .git is missing (fresh container scenario)
-            if [ ! -d ".git" ]; then
-              echo "Git directory not found, cloning repository..."
-              git clone https://github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git .
-              git checkout main
-            fi
-
-            # Configure git user
+            # ${WORKSPACE} is a built-in Jenkins variable pointing to the root of the checked out repo
+            # 'cd ${WORKSPACE}' is not necessary because the 'sh' step runs in the workspace by default
+            
             git config user.email "harbey2965@gmail.com"
             git config user.name "Harbey-tech"
-
-            # Update deployment YAML
+            
+            # Use variables inside the shell script for clarity
             REPO_PATH="java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml"
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" $REPO_PATH
 
+            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" $REPO_PATH
             git add $REPO_PATH
             git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-
-            # Push changes
+            
+            # Pushes back to GitHub using the token credential
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
           '''
         }
       }
     }
-
   }
 }
