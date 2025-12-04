@@ -62,11 +62,12 @@ pipeline {
       }
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          // This ensures all git operations happen in the root directory where the .git folder is located.
+          // Ensure all git operations happen in the root directory where the .git folder is located.
           dir("${WORKSPACE}") {
-
-            // The following commands are executed sequentially within the same shell instance
             sh '''
+              # FIX: Add the workspace to Git's list of safe directories to resolve 'not in a git directory' error
+              git config --global --add safe.directory ${WORKSPACE}
+
               # Set the git config user identity
               git config user.email "harbey2965@gmail.com"
               git config user.name "Harbey-tech"
