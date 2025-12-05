@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: spring-boot-app
-        image: harbey271/ultimate-cicd:2
+        image: harbey271/ultimate-cicd:replaceImageTag
         ports:
         - containerPort: 8080
